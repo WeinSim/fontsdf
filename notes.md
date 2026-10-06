@@ -2,10 +2,8 @@
 
 ### WGPU
 
-- how to draw triangles / meshes?
-- how to write vertex + fragment shaders?
-- how to upload data from cpu to gpu?
-- how to get user input (mouse + keyboard)?
+- contiuously update uniform (based on mouse position?)
+- where is the actual main loop? or do I not actually need one?
 
 ### FontSDF
 
