@@ -1,11 +1,31 @@
 use std::sync::Arc;
+use wgpu::util::DeviceExt;
 
 use winit::{
     application::ApplicationHandler,
-    event::WindowEvent,
+    event::{ElementState, WindowEvent},
     event_loop::{ActiveEventLoop, ControlFlow, EventLoop, OwnedDisplayHandle},
-    window::{Window, WindowId},
+    keyboard::{Key, NamedKey},
+    window::{Fullscreen, Window, WindowId},
 };
+
+#[repr(C)]
+#[derive(Copy, Clone, bytemuck::Pod, bytemuck::Zeroable)]
+struct Vertex {
+    position: [f32; 2],
+}
+
+const VERTICES: &[Vertex] = &[
+    Vertex {
+        position: [0.0, 0.5],
+    },
+    Vertex {
+        position: [-0.5, -0.5],
+    },
+    Vertex {
+        position: [0.5, -0.5],
+    },
+];
 
 struct State {
     instance: wgpu::Instance,
@@ -15,6 +35,8 @@ struct State {
     size: winit::dpi::PhysicalSize<u32>,
     surface: wgpu::Surface<'static>,
     surface_format: wgpu::TextureFormat,
+    render_pipeline: wgpu::RenderPipeline,
+    vertex_buffer: wgpu::Buffer,
 }
 
 impl State {
@@ -30,13 +52,54 @@ impl State {
             .request_device(&wgpu::DeviceDescriptor::default())
             .await
             .unwrap();
-
         let size = window.inner_size();
-
         let surface = instance.create_surface(window.clone()).unwrap();
         let cap = surface.get_capabilities(&adapter);
         let surface_format = cap.formats[0];
-
+        let shader = device.create_shader_module(wgpu::ShaderModuleDescriptor {
+            label: Some("basic triangle shader"),
+            source: wgpu::ShaderSource::Wgsl(include_str!("../res/shader.wgsl").into()),
+        });
+        let vertex_buffer = device.create_buffer_init(&wgpu::util::BufferInitDescriptor {
+            label: Some("Vertex Buffer"),
+            contents: bytemuck::cast_slice(VERTICES),
+            usage: wgpu::BufferUsages::VERTEX,
+        });
+        let vertex_layout = wgpu::VertexBufferLayout {
+            array_stride: std::mem::size_of::<Vertex>() as wgpu::BufferAddress,
+            step_mode: wgpu::VertexStepMode::Vertex,
+            attributes: &[wgpu::VertexAttribute {
+                format: wgpu::VertexFormat::Float32x2,
+                offset: 0,
+                shader_location: 0,
+            }],
+        };
+        let pipeline_layout = device.create_pipeline_layout(&wgpu::PipelineLayoutDescriptor {
+            label: None,
+            bind_group_layouts: &[],
+            immediate_size: 0,
+        });
+        let render_pipeline = device.create_render_pipeline(&wgpu::RenderPipelineDescriptor {
+            label: None,
+            layout: Some(&pipeline_layout),
+            vertex: wgpu::VertexState {
+                module: &shader,
+                entry_point: Some("vs_main"),
+                buffers: &[Some(vertex_layout)],
+                compilation_options: Default::default(),
+            },
+            fragment: Some(wgpu::FragmentState {
+                module: &shader,
+                entry_point: Some("fs_main"),
+                targets: &[Some(surface_format.into())],
+                compilation_options: Default::default(),
+            }),
+            primitive: wgpu::PrimitiveState::default(),
+            depth_stencil: None,
+            multisample: wgpu::MultisampleState::default(),
+            multiview_mask: None,
+            cache: None,
+        });
         let state = State {
             instance,
             window,
@@ -45,11 +108,11 @@ impl State {
             size,
             surface,
             surface_format,
+            render_pipeline,
+            vertex_buffer,
         };
-
         // Configure surface for the first time
         state.configure_surface();
-
         state
     }
 
@@ -117,7 +180,7 @@ impl State {
         // Renders a GREEN screen
         let mut encoder = self.device.create_command_encoder(&Default::default());
         // Create the renderpass which will clear the screen.
-        let renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
+        let mut renderpass = encoder.begin_render_pass(&wgpu::RenderPassDescriptor {
             label: None,
             color_attachments: &[Some(wgpu::RenderPassColorAttachment {
                 view: &texture_view,
@@ -125,8 +188,7 @@ impl State {
                 resolve_target: None,
                 ops: wgpu::Operations {
                     load: wgpu::LoadOp::Clear(wgpu::Color {
-                        // RGB values here are incorrectly gamma-adjusted (they appear brighter than
-                        // they should).
+                        // these values are interpreted as linearRGB
                         r: 0.04,
                         g: 0.09,
                         b: 0.16,
@@ -140,12 +202,11 @@ impl State {
             occlusion_query_set: None,
             multiview_mask: None,
         });
-
-        // If you wanted to call any drawing commands, they would go here.
-
+        renderpass.set_pipeline(&self.render_pipeline);
+        renderpass.set_vertex_buffer(0, self.vertex_buffer.slice(..));
+        renderpass.draw(0..3, 0..1);
         // End the renderpass.
         drop(renderpass);
-
         // Submit the command in the queue to execute
         self.queue.submit([encoder.finish()]);
         self.window.pre_present_notify();
@@ -161,12 +222,10 @@ struct App {
 impl ApplicationHandler for App {
     fn resumed(&mut self, event_loop: &ActiveEventLoop) {
         // Create window object
-        println!("resumed");
-        let window = Arc::new(
-            event_loop
-                .create_window(Window::default_attributes())
-                .unwrap(),
-        );
+        let window_attributes =
+            Window::default_attributes().with_fullscreen(Some(Fullscreen::Borderless(None)));
+        // .with_maximized(true);
+        let window = Arc::new(event_loop.create_window(window_attributes).unwrap());
 
         let state = pollster::block_on(State::new(
             event_loop.owned_display_handle(),
@@ -192,6 +251,18 @@ impl ApplicationHandler for App {
                 // Reconfigures the size of the surface. We do not re-render
                 // here as this event is always followed up by redraw request.
                 state.resize(size);
+            }
+            WindowEvent::KeyboardInput {
+                device_id: _,
+                event,
+                is_synthetic,
+            } => {
+                if !is_synthetic && event.state == ElementState::Pressed {
+                    match event.logical_key {
+                        Key::Named(NamedKey::Escape) => event_loop.exit(),
+                        _ => (),
+                    }
+                }
             }
             _ => (),
         }
