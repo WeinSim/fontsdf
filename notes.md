@@ -1,10 +1,5 @@
 ## TODO
 
-### WGPU
-
-- contiuously update uniform (based on mouse position?)
-- where is the actual main loop? or do I not actually need one?
-
 ### FontSDF
 
 - implement simple dragging view (like I had in logic gate simulator)
