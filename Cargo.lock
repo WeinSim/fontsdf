@@ -313,6 +313,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "fontsdf"
+version = "0.1.0"
+dependencies = [
+ "gl",
+ "glfw",
+]
+
+[[package]]
 name = "getrandom"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -399,14 +407,6 @@ dependencies = [
  "cfg-if",
  "crunchy",
  "zerocopy",
-]
-
-[[package]]
-name = "hello_opengl"
-version = "0.1.0"
-dependencies = [
- "gl",
- "glfw",
 ]
 
 [[package]]

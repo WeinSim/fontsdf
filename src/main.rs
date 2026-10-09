@@ -1,6 +1,9 @@
 use std::process::ExitCode;
 
-use glfw::{self, Action, Context, Key, OpenGlProfileHint, Window, WindowEvent, WindowHint};
+use glfw::{
+    self, Action, Context, Glfw, GlfwReceiver, Key, OpenGlProfileHint, PWindow, Window,
+    WindowEvent, WindowHint,
+};
 
 mod rendering;
 use crate::rendering::shaders::ShaderProgram;
@@ -16,7 +19,7 @@ const KEY_MAP: &[(Key, Key)] = &[
 ];
 
 fn main() -> ExitCode {
-    match create_glfw_window("FontSDF") {
+    match run("FontSDF") {
         Ok(()) => ExitCode::SUCCESS,
         Err(msg) => {
             println!("{}", msg);
@@ -25,7 +28,37 @@ fn main() -> ExitCode {
     }
 }
 
-fn create_glfw_window(title: &str) -> Result<(), String> {
+fn run(title: &str) -> Result<(), String> {
+    let (mut glfw, mut window, events) = create_window(title)?;
+    let quad = Vao::create_quad()?;
+    let shader = ShaderProgram::new(
+        include_str!("../res/shaders/vertex.glsl"),
+        include_str!("../res/shaders/fragment.glsl"),
+    )?;
+    // main loop
+    while !window.should_close() {
+        // handle events
+        glfw.poll_events();
+        for (_, event) in glfw::flush_messages(&events) {
+            glfw_handle_event(&mut window, event);
+        }
+        // render
+        let window_size = window.get_framebuffer_size();
+        unsafe {
+            gl::Viewport(0, 0, window_size.0, window_size.1);
+            // gl::Clear(gl::COLOR_BUFFER_BIT);
+            // gl::ClearColor(0.2, 0.3, 0.4, 1.0);
+        }
+        shader.start();
+        quad.render();
+        shader.stop();
+        // draw on screen
+        window.swap_buffers();
+    }
+    Ok(())
+}
+
+fn create_window(title: &str) -> Result<(Glfw, PWindow, GlfwReceiver<(f64, WindowEvent)>), String> {
     let mut glfw = glfw::init(glfw::fail_on_errors).expect("GLFW: Failed on init.");
     // create window
     glfw.window_hint(WindowHint::ContextVersion(4, 6));
@@ -33,7 +66,7 @@ fn create_glfw_window(title: &str) -> Result<(), String> {
     glfw.window_hint(WindowHint::OpenGlForwardCompat(true));
     glfw.window_hint(WindowHint::Resizable(true));
     glfw.window_hint(WindowHint::Maximized(true));
-    // glfw.window_hint(WindowHint::Decorated(false));
+    glfw.window_hint(WindowHint::Decorated(false));
     // let (mut window, events) =
     // unfortunately, fullscreen on wayland is kind of broken because the fullscreen window
     // disappears as soon as another window is focused.
@@ -64,39 +97,27 @@ fn create_glfw_window(title: &str) -> Result<(), String> {
             .map_or(std::ptr::null(), |p| p as *const _)
     });
     glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
-    let quad = Vao::create_quad()?;
-    let shader = ShaderProgram::new(
-        include_str!("../res/shaders/vertex.glsl"),
-        include_str!("../res/shaders/fragment.glsl"),
-    )?;
-    // main loop
-    while !window.should_close() {
-        // handle events
-        glfw.poll_events();
-        for (_, event) in glfw::flush_messages(&events) {
-            glfw_handle_event(&mut window, event);
-        }
-        // render
-        let window_size = window.get_framebuffer_size();
-        unsafe {
-            gl::Viewport(0, 0, window_size.0, window_size.1);
-            // gl::Clear(gl::COLOR_BUFFER_BIT);
-            // gl::ClearColor(0.2, 0.3, 0.4, 1.0);
-        }
-        shader.start();
-        quad.render();
-        shader.stop();
-        // draw on screen
-        window.swap_buffers();
-    }
-    Ok(())
+    Ok((glfw, window, events))
 }
+
+// fn key_callback(event: WindowEvent) {
+//     if let WindowEvent::Key(key, _, Action::Press, _) = event {
+//         let key = correct_glfw_key(key);
+//         match key {
+//             Key::Escape => window.set_should_close(true),
+//             Key::Space => method = !method,
+//             _ => {}
+//         }
+//     }
+// }
 
 fn glfw_handle_event(window: &mut Window, event: WindowEvent) {
     if let WindowEvent::Key(key, _, Action::Press, _) = event {
         let key = correct_glfw_key(key);
-        if key == Key::Escape {
-            window.set_should_close(true);
+        match key {
+            Key::Escape => window.set_should_close(true),
+            // Key::Space => method = !method,
+            _ => {}
         }
     }
 }
