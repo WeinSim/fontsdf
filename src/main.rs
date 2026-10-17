@@ -87,7 +87,6 @@ fn create_window(title: &str) -> Result<(Glfw, PWindow, GlfwReceiver<(f64, Windo
         // })
         .create_window(WIDTH, HEIGHT, title, glfw::WindowMode::Windowed)
         .expect("GLFW: Failed on window creation.");
-    // get the actual screen resulution size
     window.make_current();
     window.set_key_polling(true);
     // init opengl
@@ -99,17 +98,6 @@ fn create_window(title: &str) -> Result<(Glfw, PWindow, GlfwReceiver<(f64, Windo
     glfw.set_swap_interval(glfw::SwapInterval::Sync(1));
     Ok((glfw, window, events))
 }
-
-// fn key_callback(event: WindowEvent) {
-//     if let WindowEvent::Key(key, _, Action::Press, _) = event {
-//         let key = correct_glfw_key(key);
-//         match key {
-//             Key::Escape => window.set_should_close(true),
-//             Key::Space => method = !method,
-//             _ => {}
-//         }
-//     }
-// }
 
 fn glfw_handle_event(window: &mut Window, event: WindowEvent) {
     if let WindowEvent::Key(key, _, Action::Press, _) = event {

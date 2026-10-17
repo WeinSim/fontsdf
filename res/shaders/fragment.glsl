@@ -9,6 +9,10 @@ const int method = 0;
 
 // const vec2 point = vec2(0.4, 0.6);
 
+float map(float x, float xmin, float xmax, float ymin, float ymax) {
+    return (x - xmin) / (xmax - xmin) * (ymax - ymin) + ymin;
+}
+
 // source: https://www.shadertoy.com/view/MlKcDD
 
 float dot2( vec2 v ) { return dot(v,v); }
@@ -113,10 +117,12 @@ void main(void) {
     if (abs(dist) < 0.001) {
         outColor = vec4(1, 1, 1, 1);
     } else {
-        // float dmin = -0.5;
-        // float dmax = 1;
-        // float d = (dist - dmin) / (dmax - dmin);
-        // outColor = vec4(vec3(1, 1, 1) * d, 1);
-        outColor = vec4(vec3(1, 0, -1) * dist, 1);
+        vec3 baseColor = dist > 0 ? vec3(1, 0, 0) : vec3(0, 0, 1);
+        // float brightness = abs(dist);
+        float scale = 0.05;
+        float min_brightness = 0.3;
+        float max_brightness = 1.0;
+        float brightness = map(cos(mod(abs(dist), scale) / scale * 2 * 3.1415), -1, 1, min_brightness, max_brightness);
+        outColor = vec4(baseColor * brightness, 1);
     }
 }

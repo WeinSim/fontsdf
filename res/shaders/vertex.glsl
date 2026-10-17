@@ -4,10 +4,10 @@ in vec2 position;
 
 out vec2 uv;
 
-const float width = 2880;
-const float height = 1920 - 82;
-// const float width = 1920;
-// const float height = 1080;
+// const float width = 2880;
+// const float height = 1920 - 82;
+const float width = 1920;
+const float height = 1080;
 const mat3 viewMatrix = transpose(mat3(
     2.0, 0.0, -1.0,
     0.0, 2.0, -1.0,
